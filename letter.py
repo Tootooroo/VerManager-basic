@@ -6,7 +6,7 @@ import socket
 import json
 
 import typing
-from typing import Dict
+from typing import *
 
 class Letter:
 
@@ -51,7 +51,7 @@ class Letter:
 
     def __init__(self, type_: str,
                  header: Dict[str, str] = {},
-                 content: Dict[str, str] = {}) -> None:
+                 content: Dict[str, Union[str, bytes]] = {}) -> None:
 
         # Type of letter:
         # (1) NewTask
@@ -76,28 +76,31 @@ class Letter:
         jsonStr = self.toString()
         return json.loads(jsonStr)
 
-    def toBytesWithLength(self):
+    def toBytesWithLength(self) -> bytes:
         str = self.toString()
         bStr = str.encode()
 
         return len(bStr).to_bytes(2, "big") + bStr
 
-    def binaryPack(self):
+    def binaryPack(self) -> Optional[bytes]:
         if self.typeOfLetter() != Letter.BinaryFile:
             return None
 
         tid = self.getHeader("tid")
         content = self.getContent("bytes")
 
+        if type(content) is str:
+            return None
+
         tid_field = b"".join([" ".encode() for x in range(64 - len(tid))]) + tid.encode()
-        packet = (1).to_bytes(2, "big")\
-                 + (len(content)).to_bytes(4, "big")\
-                 + tid_field\
-                 + content
+        # Safe here content must not str and must a bytes
+        packet = (1).to_bytes(2, "big") + (len(content)).to_bytes(4, "big")\
+                 + tid_field + content # type: ignore
+
         return packet
 
     @staticmethod
-    def json2Letter(s: str):
+    def json2Letter(s: str) -> Letter:
         dict_ = None
 
         begin = s.find('{')
@@ -117,7 +120,7 @@ class Letter:
     def addToContent(self, key: str, value: str) -> None:
         self.content[key] = value
 
-    def getContent(self, key: str) -> str:
+    def getContent(self, key: str) -> Union[bytes, str]:
         return self.content[key]
 
     # If a letter is received completely return 0 otherwise return the remaining bytes
@@ -135,7 +138,7 @@ class Letter:
             return length - (len(s) - 2)
 
     @staticmethod
-    def parse(s : typing.ByteString):
+    def parse(s : bytes) -> Optional[Letter]:
         # Need at least BINARY_MIN_HEADER_LEN bytes to parse
         if len(s) < Letter.BINARY_MIN_HEADER_LEN:
             return None
@@ -147,14 +150,14 @@ class Letter:
             return Letter.__parse(s)
 
     @staticmethod
-    def __parse_binary(s):
+    def __parse_binary(s: bytes) -> Optional[Letter]:
         tid = s[6:70].decode().replace(" ", "")
         content = s[70:]
 
         return Letter(Letter.BinaryFile, {"tid":tid}, {"content":content})
 
     @staticmethod
-    def __parse(s):
+    def __parse(s: bytes) -> Optional[Letter]:
         letter = s[2:].decode()
         dict_ = json.loads(letter)
 
