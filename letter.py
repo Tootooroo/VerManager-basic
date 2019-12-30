@@ -207,7 +207,7 @@ class Letter:
         tid = s[6:70].decode().replace(" ", "")
         content = s[70:]
 
-        return Letter(Letter.BinaryFile, {"tid":tid}, {"content":content})
+        return Letter(Letter.BinaryFile, {"tid":tid}, {"bytes":content})
 
     @staticmethod
     def __parse(s: bytes) -> Optional['Letter']:
