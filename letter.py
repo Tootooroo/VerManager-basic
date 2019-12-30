@@ -8,6 +8,41 @@ import json
 import typing
 from typing import *
 
+def newTaskLetterValidity(letter: 'Letter') -> bool:
+    isHValid = letter.getHeader('ident') != "" and letter.getHeader('tid') != ""
+    isCValid = letter.getContent('sn') != "" and letter.getContent('vsn') != ""
+
+    return isHValid and isCValid
+
+def responseLetterValidity(letter: 'Letter') -> bool:
+    isHValid = letter.getHeader('ident') != "" and letter.getHeader('tid') != ""
+    isCValid = letter.getContent('state') != ""
+
+    return isHValid and isCValid
+
+def propertyLetterValidity(letter: 'Letter') -> bool:
+    isHValid = letter.getHeader('ident') != ""
+    isCValid = letter.getContent('MAX') != "" and letter.getContent('PROC') != ""
+
+    return isHValid and isCValid
+
+def binaryLetterValidity(letter: 'Letter') -> bool:
+    isHValid = letter.getHeader('tid') != ""
+    isCValid = letter.getContent('bytes') != ""
+
+    return isHValid and isCValid
+
+def logLetterValidity(letter: 'Letter') -> bool:
+    isHValid = letter.getHeader('logId') != ""
+    isCValid = letter.getContent('logMsg') != ""
+
+    return isHValid and isCValid
+
+def logRegisterLetterValidity(letter: 'Letter') -> bool:
+    isHValid = letter.getHeader('logId') != ""
+
+    return isHValid
+
 class Letter:
 
     # Format of NewTask letter
@@ -41,6 +76,18 @@ class Letter:
     # header  : '{"tid":"..."}
     # content : "{"bytes":b"..."}"
     BinaryFile = 'binary'
+
+    # Format of log letter
+    # Type : 'log'
+    # header : '{"logId":"..."}'
+    # content: '{"logMsg":"..."}'
+    Log = 'log'
+
+    # Format of LogRegister letter
+    # Type    : 'LogRegister'
+    # header  : '{"logId"}'
+    # content : "{}"
+    LogRegister = 'logRegister'
 
     BINARY_HEADER_LEN = 70
     BINARY_MIN_HEADER_LEN = 6
@@ -112,7 +159,10 @@ class Letter:
         return self.type_
 
     def getHeader(self, key: str) -> str:
-        return self.header[key]
+        if key in self.header:
+            return self.header[key]
+        else:
+            return ""
 
     def addToHeader(self, key: str, value: str) -> None:
         self.header[key] = value
@@ -121,7 +171,10 @@ class Letter:
         self.content[key] = value
 
     def getContent(self, key: str) -> Union[bytes, str]:
-        return self.content[key]
+        if key in self.content:
+            return self.content[key]
+        else:
+            return ""
 
     # If a letter is received completely return 0 otherwise return the remaining bytes
     @staticmethod
@@ -163,6 +216,9 @@ class Letter:
 
         return Letter(dict_['type'], dict_['header'], dict_['content'])
 
+    def validity(self) -> bool:
+        type = self.typeOfLetter()
+        return validityMethods[type](self)
 
     # PropertyNotify letter interface
     def propNotify_MAX(self) -> int:
@@ -171,3 +227,13 @@ class Letter:
         return int(self.content['PROC'])
     def propNotify_IDENT(self) -> str:
         return self.header['ident']
+
+
+validityMethods = {
+    Letter.NewTask        :newTaskLetterValidity,
+    Letter.Response       :responseLetterValidity,
+    Letter.PropertyNotify :propertyLetterValidity,
+    Letter.BinaryFile     :binaryLetterValidity,
+    Letter.Log            :logLetterValidity,
+    Letter.LogRegister    :logRegisterLetterValidity
+} # type: Dict[str, Callable]
