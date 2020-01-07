@@ -175,32 +175,6 @@ class Letter:
             length = int.from_bytes(s[:2], "big")
             return length - (len(s) - 2)
 
-    @staticmethod
-    def parse(s : bytes) -> Optional['Letter']:
-        # Need at least BINARY_MIN_HEADER_LEN bytes to parse
-        if len(s) < Letter.BINARY_MIN_HEADER_LEN:
-            return None
-
-        # To check that is BinaryFile type or another
-        if int.from_bytes(s[:2], "big") == 1:
-            return Letter.__parse_binary(s)
-        else:
-            return Letter.__parse(s)
-
-    @staticmethod
-    def __parse_binary(s: bytes) -> Optional['Letter']:
-        tid = s[6:70].decode().replace(" ", "")
-        content = s[70:]
-
-        return Letter(Letter.BinaryFile, {"tid":tid}, {"bytes":content})
-
-    @staticmethod
-    def __parse(s: bytes) -> Optional['Letter']:
-        letter = s[2:].decode()
-        dict_ = json.loads(letter)
-
-        return Letter(dict_['type'], dict_['header'], dict_['content'])
-
     def validity(self) -> bool:
         type = self.typeOfLetter()
         return validityMethods[type](self)
@@ -215,23 +189,25 @@ class Letter:
 
 
 class NewTaskLetter(Letter):
-    def __init__(self, ident:str, tid:str, sn:str, vsn:str, dateTime:str) -> None:
+    def __init__(self, args) -> None:
         Letter.__init__(self, Letter.NewTask,
-                        {"ident":ident, "tid":tid}, {"sn":sn, "vsn":vsn, "datetime":dateTime})
+                        {"ident":args['ident'], "tid":args['tid']},
+                        {"sn":args['sn'], "vsn":args['vsn'], "datetime":args['datetime']})
 
 class ResponseLetter(Letter):
-    def __init__(self, ident:str, tid:str) -> None:
-        Letter.__init__(self, Letter.Response, {"ident":ident, "tid":tid}, {})
+    def __init__(self, args) -> None:
+        Letter.__init__(self, Letter.Response,
+                        {"ident":args['ident'], "tid":args['tid']}, {})
 
 class PropLetter(Letter):
-    def __init__(self, ident:str, tid:str, max:str, proc:str) -> None:
+    def __init__(self, args) -> None:
         Letter.__init__(self, Letter.PropertyNotify,
-                        {"ident":ident, "tid":tid},
-                        {"MAX":max, "PROC":proc})
+                        {"ident":args['ident'], "tid":args['tid']},
+                        {"MAX":args['MAX'], "PROC":args['PROC']})
 
 class BinaryLetter(Letter):
-    def __init__(self, tid:str, b:bytes) -> None:
-        Letter.__init__(self, Letter.BinaryFile, {"tid":tid}, {"bytes":b})
+    def __init__(self, args) -> None:
+        Letter.__init__(self, Letter.BinaryFile, {"tid":args['tid']}, {"bytes":args['bytes']})
 
     def binaryPack(self) -> Optional[bytes]:
         if self.typeOfLetter() != Letter.BinaryFile:
@@ -252,12 +228,12 @@ class BinaryLetter(Letter):
 
 
 class LogLetter(Letter):
-    def __init__(self, logId:str, logMsg:str) -> None:
-        Letter.__init__(self, Letter.Log, {"logId":logId}, {"logMsg":logMsg})
+    def __init__(self, args) -> None:
+        Letter.__init__(self, Letter.Log, {"logId":args['logId']}, {"logMsg":args['logMsg']})
 
 class LogRegLetter(Letter):
-    def __init__(self, logId:str) -> None:
-        Letter.__init__(self, Letter.LogRegister, {"logId":logId}, {})
+    def __init__(self, args) -> None:
+        Letter.__init__(self, Letter.LogRegister, {"logId":args['logId']}, {})
 
 validityMethods = {
     Letter.NewTask        :newTaskLetterValidity,
@@ -267,3 +243,39 @@ validityMethods = {
     Letter.Log            :logLetterValidity,
     Letter.LogRegister    :logRegisterLetterValidity,
 } # type: Dict[str, Callable]
+
+initMap = {
+    Letter.NewTask        : NewTaskLetter,
+    Letter.Response       : ResponseLetter,
+    Letter.PropertyNotify : PropLetter,
+    Letter.BinaryFile     : BinaryLetter,
+    Letter.Log            : LogLetter,
+    Letter.LogRegister    : LogRegLetter
+}
+
+def parse(s : bytes) -> Optional['Letter']:
+    # Need at least BINARY_MIN_HEADER_LEN bytes to parse
+    if len(s) < Letter.BINARY_MIN_HEADER_LEN:
+        return None
+
+    # To check that is BinaryFile type or another
+    if int.from_bytes(s[:2], "big") == 1:
+        return __parse_binary(s)
+    else:
+        return __parse(s)
+
+def __parse_binary(s: bytes) -> Optional['Letter']:
+    tid = s[6:70].decode().replace(" ", "")
+    content = s[70:]
+
+    return BinaryLetter({"tid":tid, "bytes":content})
+
+def __parse(s: bytes) -> Optional['Letter']:
+    letter = s[2:].decode()
+    dict_ = json.loads(letter)
+
+    type = dict_['type']
+    args = dict_['header']
+    args.update(dict_['content'])
+
+    return initMap[type](args)
