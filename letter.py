@@ -10,7 +10,9 @@ from typing import *
 
 def newTaskLetterValidity(letter: 'Letter') -> bool:
     isHValid = letter.getHeader('ident') != "" and letter.getHeader('tid') != ""
-    isCValid = letter.getContent('sn') != "" and letter.getContent('vsn') != ""
+    isCValid = letter.getContent('sn') != "" and \
+               letter.getContent('vsn') != "" and \
+               letter.getContent('datetime') != ""
 
     return isHValid and isCValid
 
@@ -48,7 +50,7 @@ class Letter:
     # Format of NewTask letter
     # Type    : 'new'
     # header  : '{"ident":"...", "tid":"..."}'
-    # content : '{"sn":"...", "vsn":"..."}'
+    # content : '{"sn":"...", "vsn":"...", "datetime":"..."}'
     NewTask = 'new'
 
     # Format of TaskCancel letter
@@ -235,5 +237,5 @@ validityMethods = {
     Letter.PropertyNotify :propertyLetterValidity,
     Letter.BinaryFile     :binaryLetterValidity,
     Letter.Log            :logLetterValidity,
-    Letter.LogRegister    :logRegisterLetterValidity
+    Letter.LogRegister    :logRegisterLetterValidity,
 } # type: Dict[str, Callable]
