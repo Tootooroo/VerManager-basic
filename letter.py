@@ -131,23 +131,6 @@ class Letter:
 
         return len(bStr).to_bytes(2, "big") + bStr
 
-    def binaryPack(self) -> Optional[bytes]:
-        if self.typeOfLetter() != Letter.BinaryFile:
-            return None
-
-        tid = self.getHeader("tid")
-        content = self.getContent("bytes")
-
-        if type(content) is str:
-            return None
-
-        tid_field = b"".join([" ".encode() for x in range(64 - len(tid))]) + tid.encode()
-        # Safe here content must not str and must a bytes
-        packet = (1).to_bytes(2, "big") + (len(content)).to_bytes(4, "big")\
-                 + tid_field + content # type: ignore
-
-        return packet
-
     @staticmethod
     def json2Letter(s: str) -> 'Letter':
         dict_ = None
@@ -230,6 +213,51 @@ class Letter:
     def propNotify_IDENT(self) -> str:
         return self.header['ident']
 
+
+class NewTaskLetter(Letter):
+    def __init__(self, ident:str, tid:str, sn:str, vsn:str, dateTime:str) -> None:
+        Letter.__init__(self, Letter.NewTask,
+                        {"ident":ident, "tid":tid}, {"sn":sn, "vsn":vsn, "datetime":dateTime})
+
+class ResponseLetter(Letter):
+    def __init__(self, ident:str, tid:str) -> None:
+        Letter.__init__(self, Letter.Response, {"ident":ident, "tid":tid}, {})
+
+class PropLetter(Letter):
+    def __init__(self, ident:str, tid:str, max:str, proc:str) -> None:
+        Letter.__init__(self, Letter.PropertyNotify,
+                        {"ident":ident, "tid":tid},
+                        {"MAX":max, "PROC":proc})
+
+class BinaryLetter(Letter):
+    def __init__(self, tid:str, b:bytes) -> None:
+        Letter.__init__(self, Letter.BinaryFile, {"tid":tid}, {"bytes":b})
+
+    def binaryPack(self) -> Optional[bytes]:
+        if self.typeOfLetter() != Letter.BinaryFile:
+            return None
+
+        tid = self.getHeader("tid")
+        content = self.getContent("bytes")
+
+        if type(content) is str:
+            return None
+
+        tid_field = b"".join([" ".encode() for x in range(64 - len(tid))]) + tid.encode()
+        # Safe here content must not str and must a bytes
+        packet = (1).to_bytes(2, "big") + (len(content)).to_bytes(4, "big")\
+                 + tid_field + content # type: ignore
+
+        return packet
+
+
+class LogLetter(Letter):
+    def __init__(self, logId:str, logMsg:str) -> None:
+        Letter.__init__(self, Letter.Log, {"logId":logId}, {"logMsg":logMsg})
+
+class LogRegLetter(Letter):
+    def __init__(self, logId:str) -> None:
+        Letter.__init__(self, Letter.LogRegister, {"logId":logId}, {})
 
 validityMethods = {
     Letter.NewTask        :newTaskLetterValidity,
