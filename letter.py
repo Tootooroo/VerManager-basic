@@ -5,14 +5,15 @@
 import socket
 import json
 
+from manager.misc.exceptions import *
+
 import typing
 from typing import *
 
 def newTaskLetterValidity(letter: 'Letter') -> bool:
     isHValid = letter.getHeader('ident') != "" and letter.getHeader('tid') != ""
     isCValid = letter.getContent('sn') != "" and \
-               letter.getContent('vsn') != "" and \
-               letter.getContent('datetime') != ""
+               letter.getContent('vsn') != ""
 
     return isHValid and isCValid
 
@@ -102,10 +103,6 @@ class Letter:
                  header: Dict[str, str] = {},
                  content: Dict[str, Union[str, bytes]] = {}) -> None:
 
-        # Type of letter:
-        # (1) NewTask
-        # (2) TaskCancel
-        # (3) Response
         self.type_ = type_
 
         # header field is a dictionary
@@ -113,6 +110,10 @@ class Letter:
 
         # content field is a dictionary
         self.content = content
+
+        if not self.validity():
+            print(self.type_ + str(self.header) + str(self.content))
+            raise INVALID_FORMAT_LETTER
 
     # Generate a json string
     def toString(self) -> str:
