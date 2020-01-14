@@ -5,8 +5,6 @@
 import socket
 import json
 
-from manager.misc.exceptions import *
-
 import typing
 from typing import *
 
@@ -113,7 +111,6 @@ class Letter:
 
         if not self.validity():
             print(self.type_ + str(self.header) + str(self.content))
-            raise INVALID_FORMAT_LETTER
 
     # Generate a json string
     def toString(self) -> str:
