@@ -66,6 +66,11 @@ class Letter:
     # content : '{"state":"..."}
     Response = 'response'
 
+    RESPONSE_STATE_PREPARE = "0"
+    RESPONSE_STATE_IN_PROC = "1"
+    RESPONSE_STATE_FINISHED = "2"
+    RESPONSE_STATE_FAILURE = "3"
+
     # Format of PrpertyNotify letter
     # Type    : 'notify'
     # header  : '{"ident":"..."}'
