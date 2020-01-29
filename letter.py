@@ -8,6 +8,8 @@ import json
 import typing
 from typing import *
 
+from datetime import datetime
+
 def newTaskLetterValidity(letter: 'Letter') -> bool:
     isHValid = letter.getHeader('ident') != "" and letter.getHeader('tid') != ""
     isCValid = letter.getContent('sn') != "" and \
@@ -109,8 +111,8 @@ class Letter:
         # content field is a dictionary
         self.content = content
 
-        if not self.validity():
-            print(self.type_ + str(self.header) + str(self.content))
+        #if not self.validity():
+        #    print(self.type_ + str(self.header) + str(self.content))
 
     # Generate a json string
     def toString(self) -> str:
@@ -128,23 +130,6 @@ class Letter:
         bStr = str.encode()
 
         return len(bStr).to_bytes(2, "big") + bStr
-
-    def binaryPack(self) -> Optional[bytes]:
-        if self.typeOfLetter() != Letter.BinaryFile:
-            return None
-
-        tid = self.getHeader("tid")
-        content = self.getContent("bytes")
-
-        if type(content) is str:
-            return None
-
-        tid_field = b"".join([" ".encode() for x in range(64 - len(tid))]) + tid.encode()
-        # Safe here content must not str and must a bytes
-        packet = (1).to_bytes(2, "big") + (len(content)).to_bytes(4, "big")\
-                 + tid_field + content # type: ignore
-
-        return packet
 
     @staticmethod
     def json2Letter(s: str) -> 'Letter':
@@ -198,23 +183,21 @@ class Letter:
 
         # To check that is BinaryFile type or another
         if int.from_bytes(s[:2], "big") == 1:
-            return Letter.__parse_binary(s)
+            tid = s[6:70].decode().replace(" ", "")
+            content = s[70:]
+
+            return BinaryLetter(tid, content)
         else:
             return Letter.__parse(s)
-
-    @staticmethod
-    def __parse_binary(s: bytes) -> Optional['Letter']:
-        tid = s[6:70].decode().replace(" ", "")
-        content = s[70:]
-
-        return Letter(Letter.BinaryFile, {"tid":tid}, {"bytes":content})
 
     @staticmethod
     def __parse(s: bytes) -> Optional['Letter']:
         letter = s[2:].decode()
         dict_ = json.loads(letter)
 
-        return Letter(dict_['type'], dict_['header'], dict_['content'])
+        type_ = dict_['type']
+
+        return parseMethods[type_].parse(s)
 
     def validity(self) -> bool:
         type = self.typeOfLetter()
@@ -228,6 +211,174 @@ class Letter:
     def propNotify_IDENT(self) -> str:
         return self.header['ident']
 
+def bytesDivide(s:bytes) -> Tuple:
+    letter = s[2:].decode()
+    dict_ = json.loads(letter)
+
+    type_ = dict_['type']
+    header = dict_['header']
+    content = dict_['content']
+
+    return (type_, header, content)
+
+class NewLetter(Letter):
+
+    def __init__(self, ident:str, tid:str, sn:str, vsn:str, datetime:str) -> None:
+        Letter.__init__(
+            self,
+            Letter.NewTask,
+            {"ident":ident, "tid":tid},
+            {"sn":sn, "vsn":vsn, "datetime":datetime}
+        )
+
+    @staticmethod
+    def parse(s:bytes) -> Optional['NewLetter']:
+
+        (type_, header, content) = bytesDivide(s)
+
+        if type_ != Letter.NewTask:
+            return None
+
+        return NewLetter(
+            ident = header['ident'],
+            tid = header['tid'],
+            sn = content['sn'],
+            vsn = content['vsn'],
+            datetime = content['datetime'])
+
+class ResponseLetter(Letter):
+
+    def __init__(self, ident:str, tid:str, state:str) -> None:
+        Letter.__init__(
+            self,
+            Letter.Response,
+            {"ident":ident, "tid":tid},
+            {"state":state}
+        )
+
+    @staticmethod
+    def parse(s:bytes) -> Optional['ResponseLetter']:
+        (type_, header, content) = bytesDivide(s)
+
+        if type_ != Letter.Response:
+            return None
+
+        return ResponseLetter(
+            ident = header['ident'],
+            tid = header['tid'],
+            state = content['state']
+        )
+
+class PropLetter(Letter):
+
+    def __init__(self, ident:str, max:str, proc:str) -> None:
+        Letter.__init__(
+            self,
+            Letter.PropertyNotify,
+            {"ident":ident},
+            {"MAX":max, "PROC":proc}
+        )
+
+    @staticmethod
+    def parse(s:bytes) -> Optional['PropLetter']:
+        (type_, header, content) = bytesDivide(s)
+
+        if type_ != Letter.PropertyNotify:
+            return None
+
+        return PropLetter(
+            ident = header['ident'],
+            max = content['MAX'],
+            proc = content['PROC']
+        )
+
+class BinaryLetter(Letter):
+
+    def __init__(self, tid:str, bStr:bytes) -> None:
+        Letter.__init__(
+            self,
+            Letter.BinaryFile,
+            {"tid":tid},
+            {"bytes":bStr}
+        )
+
+    @staticmethod
+    def parse(s:bytes) -> Optional['BinaryLetter']:
+        (type_, header, content) = bytesDivide(s)
+
+        if type_!= Letter.BinaryFile:
+            return None
+
+        return BinaryLetter(
+            tid = header['tid'],
+            bStr = content['bytes']
+        )
+
+    def toBytesWithLength(self) -> bytes:
+
+        bStr = self.binaryPack()
+
+        if bStr is None:
+            return b''
+
+        return bStr
+
+    def binaryPack(self) -> Optional[bytes]:
+        tid = self.getHeader('tid')
+        content = self.getContent("bytes")
+
+        if type(content) is str:
+            return None
+
+        tid_field = b"".join([" ".encode() for x in range(64 - len(tid))]) + tid.encode()
+        # Safe here content must not str and must a bytes
+        packet = (1).to_bytes(2, "big") + (len(content)).to_bytes(4, "big")\
+                 + tid_field + content # type: ignore
+
+        return packet
+
+
+class LogLetter(Letter):
+
+    def __init__(self, logId:str, logMsg:str) -> None:
+        Letter.__init__(
+            self,
+            Letter.Log,
+            {"logId":logId},
+            {"logMsg":logMsg}
+        )
+
+    @staticmethod
+    def parse(s:bytes) -> Optional['LogLetter']:
+        (type_, header, content) = bytesDivide(s)
+
+        if type_ != Letter.Log:
+            return None
+
+        return LogLetter(
+            logId = header['logId'],
+            logMsg = content['logMsg']
+        )
+
+class LogRegLetter(Letter):
+
+    def __init__(self, logId:str) -> None:
+        Letter.__init__(
+            self,
+            Letter.LogRegister,
+            {"logId":logId},
+        )
+
+    @staticmethod
+    def parse(s:bytes) -> Optional['LogRegLetter']:
+        (type_, header, content) = bytesDivide(s)
+
+        if  type_ != Letter.LogRegister:
+            return None
+
+        return LogRegLetter(
+            logId = header['logId']
+        )
 
 validityMethods = {
     Letter.NewTask        :newTaskLetterValidity,
@@ -237,3 +388,12 @@ validityMethods = {
     Letter.Log            :logLetterValidity,
     Letter.LogRegister    :logRegisterLetterValidity,
 } # type: Dict[str, Callable]
+
+parseMethods = {
+    Letter.NewTask        :NewLetter,
+    Letter.Response       :ResponseLetter,
+    Letter.PropertyNotify :PropLetter,
+    Letter.BinaryFile     :BinaryLetter,
+    Letter.Log            :LogLetter,
+    Letter.LogRegister    :LogRegLetter
+} # type: Any
