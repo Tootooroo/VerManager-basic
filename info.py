@@ -3,6 +3,7 @@
 import typing
 from typing import Generic, TypeVar
 from yaml import load, SafeLoader
+from functools import reduce
 
 # Abstruction of configuration file
 class Info:
@@ -27,9 +28,6 @@ class Info:
     def getConfigs(self) -> typing.Dict[str, typing.Any]:
         return self.__config
 
-    def validityChecking(self):
-        condition = 'WORKER_NAME' in self.__config and\
-                    'REPO_URL' in self.__config and\
-                    'PROJECT_NAME' in self.__config
-
-        return condition
+    def validityChecking(self, predicates) -> bool:
+        results = list(map(lambda p: p(self.__config), predicates))
+        return reduce(lambda acc, curr: acc and curr, results)
