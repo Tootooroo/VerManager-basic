@@ -22,7 +22,7 @@ class Info:
         except KeyError:
             return ""
 
-        return cfgValue
+        return str(cfgValue)
 
     # Value of the dict may be a string may be a dict
     def getConfigs(self) -> typing.Dict[str, typing.Any]:
