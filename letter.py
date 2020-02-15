@@ -97,7 +97,7 @@ class Letter:
     # content : "{}"
     LogRegister = 'logRegister'
 
-    BINARY_HEADER_LEN = 70
+    BINARY_HEADER_LEN = 80
     BINARY_MIN_HEADER_LEN = 6
 
     MAX_LEN = 512
@@ -188,11 +188,7 @@ class Letter:
 
         # To check that is BinaryFile type or another
         if int.from_bytes(s[:2], "big") == 1:
-            tid = s[16:70].decode().replace(" ", "")
-            extension = s[6:16].decode().replace(" ", "")
-            content = s[70:]
-
-            return BinaryLetter(tid, content)
+            return BinaryLetter.parse(s)
         else:
             return Letter.__parse(s)
 
@@ -310,15 +306,11 @@ class BinaryLetter(Letter):
 
     @staticmethod
     def parse(s:bytes) -> Optional['BinaryLetter']:
-        (type_, header, content) = bytesDivide(s)
+        extension = s[6:16].decode().replace(" ", "")
+        tid = s[16:70].decode().replace(" ", "")
+        content = s[70:]
 
-        if type_!= Letter.BinaryFile:
-            return None
-
-        return BinaryLetter(
-            tid = header['tid'],
-            bStr = content['bytes']
-        )
+        return BinaryLetter(tid, content, extension)
 
     def toBytesWithLength(self) -> bytes:
 
