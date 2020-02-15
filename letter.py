@@ -78,7 +78,7 @@ class Letter:
     PropertyNotify = 'notify'
 
     # Format of binary letter in a stream
-    # | Type (2Bytes) 00001 :: Int | Length (4Bytes) :: Int | TaskId (64Bytes) :: String | Content |
+    # | Type (2Bytes) 00001 :: Int | Length (4Bytes) :: Int | Ext (10 Bytes) | TaskId (64Bytes) :: String | Content |
     # Format of BinaryFile letter
     # Type    : 'binary'
     # header  : '{"tid":"..."}
@@ -188,7 +188,8 @@ class Letter:
 
         # To check that is BinaryFile type or another
         if int.from_bytes(s[:2], "big") == 1:
-            tid = s[6:70].decode().replace(" ", "")
+            tid = s[16:70].decode().replace(" ", "")
+            extension = s[6:16].decode().replace(" ", "")
             content = s[70:]
 
             return BinaryLetter(tid, content)
@@ -299,11 +300,11 @@ class PropLetter(Letter):
 
 class BinaryLetter(Letter):
 
-    def __init__(self, tid:str, bStr:bytes) -> None:
+    def __init__(self, tid:str, bStr:bytes, extension:str = "") -> None:
         Letter.__init__(
             self,
             Letter.BinaryFile,
-            {"tid":tid},
+            {"tid":tid, "extension":extension},
             {"bytes":bStr}
         )
 
@@ -330,15 +331,18 @@ class BinaryLetter(Letter):
 
     def binaryPack(self) -> Optional[bytes]:
         tid = self.getHeader('tid')
+        extension = self.getHeader('extension')
         content = self.getContent("bytes")
 
         if type(content) is str:
             return None
 
         tid_field = b"".join([" ".encode() for x in range(64 - len(tid))]) + tid.encode()
+        ext_field = b"".join([" ".encode() for x in range(10 - len(extension))]) + extension.encode()
+
         # Safe here content must not str and must a bytes
         packet = (1).to_bytes(2, "big") + (len(content)).to_bytes(4, "big")\
-                 + tid_field + content # type: ignore
+                 + ext_field + tid_field + content # type: ignore
 
         return packet
 
