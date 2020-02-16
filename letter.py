@@ -307,8 +307,8 @@ class BinaryLetter(Letter):
     @staticmethod
     def parse(s:bytes) -> Optional['BinaryLetter']:
         extension = s[6:16].decode().replace(" ", "")
-        tid = s[16:70].decode().replace(" ", "")
-        content = s[70:]
+        tid = s[16:80].decode().replace(" ", "")
+        content = s[80:]
 
         return BinaryLetter(tid, content, extension)
 
