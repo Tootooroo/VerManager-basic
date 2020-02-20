@@ -50,8 +50,8 @@ class Letter:
 
     # Format of NewTask letter
     # Type    : 'new'
-    # header  : '{"ident":"...", "tid":"..."}'
-    # content : '{"sn":"...", "vsn":"...", "datetime":"..."}'
+    # header  : '{"ident":"...", "tid":"...", "needPost":"true/false"}'
+    # content : '{"sn":"...", "vsn":"...", "datetime":"...", "extra":{...}}"
     NewTask = 'new'
 
     # Format of TaskCancel letter
@@ -78,10 +78,11 @@ class Letter:
     PropertyNotify = 'notify'
 
     # Format of binary letter in a stream
-    # | Type (2Bytes) 00001 :: Int | Length (4Bytes) :: Int | Ext (10 Bytes) | TaskId (64Bytes) :: String | Content |
+    # | Type (2Bytes) 00001 :: Int | Length (4Bytes) :: Int | Ext (10 Bytes)
+    # | TaskId (64Bytes) :: String | Content |
     # Format of BinaryFile letter
     # Type    : 'binary'
-    # header  : '{"tid":"..."}
+    # header  : '{"tid":"..."}'
     # content : "{"bytes":b"..."}"
     BinaryFile = 'binary'
 
@@ -106,7 +107,7 @@ class Letter:
 
     def __init__(self, type_: str,
                  header: Dict[str, str] = {},
-                 content: Dict[str, Union[str, bytes]] = {}) -> None:
+                 content: Dict[str, Any] = {}) -> None:
 
         self.type_ = type_
 
@@ -157,10 +158,16 @@ class Letter:
     def addToHeader(self, key: str, value: str) -> None:
         self.header[key] = value
 
+    def setHeader(self, key:str, value:str) -> None:
+        self.header[key] = value
+
+    def setContent(self, key:str, value:Union[str, bytes]) -> None:
+        self.content[key] = value
+
     def addToContent(self, key: str, value: str) -> None:
         self.content[key] = value
 
-    def getContent(self, key: str) -> Union[bytes, str]:
+    def getContent(self, key: str) -> Any:
         if key in self.content:
             return self.content[key]
         else:
@@ -225,12 +232,15 @@ def bytesDivide(s:bytes) -> Tuple:
 
 class NewLetter(Letter):
 
-    def __init__(self, ident:str, tid:str, sn:str, vsn:str, datetime:str) -> None:
+    def __init__(self, ident:str, tid:str, sn:str,
+                 vsn:str, datetime:str,
+                 extra:Dict = {},
+                 needPost:str = "") -> None:
         Letter.__init__(
             self,
             Letter.NewTask,
-            {"ident":ident, "tid":tid},
-            {"sn":sn, "vsn":vsn, "datetime":datetime}
+            {"ident":ident, "tid":tid, "needPost":needPost},
+            {"sn":sn, "vsn":vsn, "datetime":datetime, "extra":extra}
         )
 
     @staticmethod
