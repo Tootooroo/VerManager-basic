@@ -28,3 +28,17 @@ def pathStrConcate(*args, seperator:str) -> str:
     argsL = list(map(lambda s: s[0:-1] if s[-1] == '/' and len(s) > 1 else s, argsL))
 
     return reduce(lambda acc, curr: acc + seperator + curr if acc != '/' else acc + curr, argsL)
+
+def partition(items:List, predicate:Callable) -> Tuple[List, List]:
+
+    trueSet = [] # type: List
+    falseSet = [] # type: List
+
+    for item in items:
+
+        if predicate(item):
+            trueSet.append(item)
+        else:
+            falseSet.append(item)
+
+    return (trueSet, falseSet)
