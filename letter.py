@@ -50,19 +50,19 @@ class Letter:
 
     # Format of NewTask letter
     # Type    : 'new'
-    # header  : '{"ident":"...", "tid":"...", "needPost":"true/false"}'
+    # header  : '{"tid":"...", "parent":"...", "needPost":"true/false"}'
     # content : '{"sn":"...", "vsn":"...", "datetime":"...", "extra":{...}}"
     NewTask = 'new'
 
     # Format of TaskCancel letter
     # Type    : 'cancel'
-    # header  : '{"ident":"...", "tid":"..."}'
+    # header  : '{"tid":"...", "parent":"..."}'
     # content : '{}'
     TaskCancel = 'cancel'
 
     # Format of Response letter
     # Type    : 'response'
-    # header  : '{"ident":"...", "tid":"..."}
+    # header  : '{"tid":"...", "parent":"..."}
     # content : '{"state":"..."}
     Response = 'response'
 
@@ -82,23 +82,23 @@ class Letter:
     # | TaskId (64Bytes) :: String | Content |
     # Format of BinaryFile letter
     # Type    : 'binary'
-    # header  : '{"tid":"..."}'
+    # header  : '{"tid":"...", "parent":"..."}'
     # content : "{"bytes":b"..."}"
     BinaryFile = 'binary'
 
     # Format of log letter
     # Type : 'log'
-    # header : '{"logId":"..."}'
+    # header : '{"ident":"...", "logId":"..."}'
     # content: '{"logMsg":"..."}'
     Log = 'log'
 
     # Format of LogRegister letter
     # Type    : 'LogRegister'
-    # header  : '{"logId"}'
+    # header  : '{"ident":"...", "logId"}'
     # content : "{}"
     LogRegister = 'logRegister'
 
-    BINARY_HEADER_LEN = 80
+    BINARY_HEADER_LEN = 144
     BINARY_MIN_HEADER_LEN = 6
 
     MAX_LEN = 512
@@ -232,14 +232,15 @@ def bytesDivide(s:bytes) -> Tuple:
 
 class NewLetter(Letter):
 
-    def __init__(self, ident:str, tid:str, sn:str,
+    def __init__(self, tid:str, sn:str,
                  vsn:str, datetime:str,
+                 parent:str = "",
                  extra:Dict = {},
                  needPost:str = "") -> None:
         Letter.__init__(
             self,
             Letter.NewTask,
-            {"ident":ident, "tid":tid, "needPost":needPost},
+            {"tid":tid, "parent":parent, "needPost":needPost},
             {"sn":sn, "vsn":vsn, "datetime":datetime, "extra":extra}
         )
 
@@ -252,19 +253,19 @@ class NewLetter(Letter):
             return None
 
         return NewLetter(
-            ident = header['ident'],
             tid = header['tid'],
             sn = content['sn'],
             vsn = content['vsn'],
+            parent = header['parent'],
             datetime = content['datetime'])
 
 class ResponseLetter(Letter):
 
-    def __init__(self, ident:str, tid:str, state:str) -> None:
+    def __init__(self, tid:str, state:str, parent:str = "") -> None:
         Letter.__init__(
             self,
             Letter.Response,
-            {"ident":ident, "tid":tid},
+            {"tid":tid, "parent":parent},
             {"state":state}
         )
 
@@ -276,9 +277,9 @@ class ResponseLetter(Letter):
             return None
 
         return ResponseLetter(
-            ident = header['ident'],
             tid = header['tid'],
-            state = content['state']
+            state = content['state'],
+            parent = header['parent']
         )
 
 class PropLetter(Letter):
@@ -306,11 +307,11 @@ class PropLetter(Letter):
 
 class BinaryLetter(Letter):
 
-    def __init__(self, tid:str, bStr:bytes, extension:str = "") -> None:
+    def __init__(self, tid:str, bStr:bytes, extension:str = "", parent:str = "") -> None:
         Letter.__init__(
             self,
             Letter.BinaryFile,
-            {"tid":tid, "extension":extension},
+            {"tid":tid, "extension":extension, "parent":parent},
             {"bytes":bStr}
         )
 
@@ -318,9 +319,10 @@ class BinaryLetter(Letter):
     def parse(s:bytes) -> Optional['BinaryLetter']:
         extension = s[6:16].decode().replace(" ", "")
         tid = s[16:80].decode().replace(" ", "")
-        content = s[80:]
+        parent = s[80:144].decode().replace(" ", "")
+        content = s[144:]
 
-        return BinaryLetter(tid, content, extension)
+        return BinaryLetter(tid, content, extension, parent = parent)
 
     def toBytesWithLength(self) -> bytes:
 
@@ -335,27 +337,35 @@ class BinaryLetter(Letter):
         tid = self.getHeader('tid')
         extension = self.getHeader('extension')
         content = self.getContent("bytes")
+        parent = self.getHeader('parent')
 
         if type(content) is str:
             return None
 
         tid_field = b"".join([" ".encode() for x in range(64 - len(tid))]) + tid.encode()
+        parent_field = b"".join([" ".encode() for x in range(64 - len(parent))]) + parent.encode()
         ext_field = b"".join([" ".encode() for x in range(10 - len(extension))]) + extension.encode()
 
         # Safe here content must not str and must a bytes
-        packet = (1).to_bytes(2, "big") + (len(content)).to_bytes(4, "big")\
-                 + ext_field + tid_field + content # type: ignore
+        # | Type (2Bytes) 00001 :: Int | Length (4Bytes) :: Int | Ext (10 Bytes) | TaskId (64Bytes) :: String
+        # | Parent(64 Bytes) :: String | Content :: Bytes |
+        packet = (1).to_bytes(2, "big") + \
+                 (len(content)).to_bytes(4, "big") + \
+                 ext_field + \
+                 tid_field + \
+                 parent_field + \
+                 content
 
         return packet
 
 
 class LogLetter(Letter):
 
-    def __init__(self, logId:str, logMsg:str) -> None:
+    def __init__(self, ident:str, logId:str, logMsg:str) -> None:
         Letter.__init__(
             self,
             Letter.Log,
-            {"logId":logId},
+            {"ident":ident, "logId":logId},
             {"logMsg":logMsg}
         )
 
@@ -367,17 +377,18 @@ class LogLetter(Letter):
             return None
 
         return LogLetter(
+            ident = header['ident'],
             logId = header['logId'],
             logMsg = content['logMsg']
         )
 
 class LogRegLetter(Letter):
 
-    def __init__(self, logId:str) -> None:
+    def __init__(self, ident:str, logId:str) -> None:
         Letter.__init__(
             self,
             Letter.LogRegister,
-            {"logId":logId},
+            {"ident":ident, "logId":logId},
         )
 
     @staticmethod
@@ -388,6 +399,7 @@ class LogRegLetter(Letter):
             return None
 
         return LogRegLetter(
+            ident = header['ident'],
             logId = header['logId']
         )
 
