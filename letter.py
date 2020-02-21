@@ -50,7 +50,7 @@ class Letter:
 
     # Format of NewTask letter
     # Type    : 'new'
-    # header  : '{"tid":"...", "parent":"...", "needPost":"true/false"}'
+    # header  : '{"tid":"...", "parent":"...", "needPost":"true/false", "menu":"..."}'
     # content : '{"sn":"...", "vsn":"...", "datetime":"...", "extra":{...}}"
     NewTask = 'new'
 
@@ -79,7 +79,8 @@ class Letter:
 
     # Format of binary letter in a stream
     # | Type (2Bytes) 00001 :: Int | Length (4Bytes) :: Int | Ext (10 Bytes)
-    # | TaskId (64Bytes) :: String | Content |
+    # | TaskId (64Bytes) :: String | Parent (30 Bytes) :: String
+    # | Menu (30 Bytes) :: String | Content |
     # Format of BinaryFile letter
     # Type    : 'binary'
     # header  : '{"tid":"...", "parent":"..."}'
@@ -98,7 +99,7 @@ class Letter:
     # content : "{}"
     LogRegister = 'logRegister'
 
-    BINARY_HEADER_LEN = 144
+    BINARY_HEADER_LEN = 174
     BINARY_MIN_HEADER_LEN = 6
 
     MAX_LEN = 512
@@ -234,13 +235,14 @@ class NewLetter(Letter):
 
     def __init__(self, tid:str, sn:str,
                  vsn:str, datetime:str,
+                 menu:str = "",
                  parent:str = "",
                  extra:Dict = {},
                  needPost:str = "") -> None:
         Letter.__init__(
             self,
             Letter.NewTask,
-            {"tid":tid, "parent":parent, "needPost":needPost},
+            {"tid":tid, "parent":parent, "needPost":needPost, "menu":menu},
             {"sn":sn, "vsn":vsn, "datetime":datetime, "extra":extra}
         )
 
@@ -256,8 +258,11 @@ class NewLetter(Letter):
             tid = header['tid'],
             sn = content['sn'],
             vsn = content['vsn'],
+            datetime = content['datetime'],
+            menu = header['menu'],
             parent = header['parent'],
-            datetime = content['datetime'])
+            extra = content['extra'],
+            needPost = header['needPost'])
 
 class ResponseLetter(Letter):
 
@@ -307,11 +312,13 @@ class PropLetter(Letter):
 
 class BinaryLetter(Letter):
 
-    def __init__(self, tid:str, bStr:bytes, extension:str = "", parent:str = "") -> None:
+    def __init__(self, tid:str, bStr:bytes, menu:str = "",
+                 extension:str = "", parent:str = "") -> None:
+
         Letter.__init__(
             self,
             Letter.BinaryFile,
-            {"tid":tid, "extension":extension, "parent":parent},
+            {"tid":tid, "extension":extension, "parent":parent, "menu":menu},
             {"bytes":bStr}
         )
 
@@ -320,9 +327,10 @@ class BinaryLetter(Letter):
         extension = s[6:16].decode().replace(" ", "")
         tid = s[16:80].decode().replace(" ", "")
         parent = s[80:144].decode().replace(" ", "")
-        content = s[144:]
+        menu = s[144:174].decode().replace(" ", "")
+        content = s[174:]
 
-        return BinaryLetter(tid, content, extension, parent = parent)
+        return BinaryLetter(tid, content, menu, extension, parent = parent)
 
     def toBytesWithLength(self) -> bytes:
 
@@ -338,6 +346,7 @@ class BinaryLetter(Letter):
         extension = self.getHeader('extension')
         content = self.getContent("bytes")
         parent = self.getHeader('parent')
+        menu = self.getHeader('menu')
 
         if type(content) is str:
             return None
@@ -345,15 +354,17 @@ class BinaryLetter(Letter):
         tid_field = b"".join([" ".encode() for x in range(64 - len(tid))]) + tid.encode()
         parent_field = b"".join([" ".encode() for x in range(64 - len(parent))]) + parent.encode()
         ext_field = b"".join([" ".encode() for x in range(10 - len(extension))]) + extension.encode()
+        menu_field = b"".join([" ".encode() for x in range(30 - len(menu))]) + menu.encode()
 
         # Safe here content must not str and must a bytes
         # | Type (2Bytes) 00001 :: Int | Length (4Bytes) :: Int | Ext (10 Bytes) | TaskId (64Bytes) :: String
-        # | Parent(64 Bytes) :: String | Content :: Bytes |
+        # | Parent(64 Bytes) :: String | Menu (30 Bytes) :: String | Content :: Bytes |
         packet = (1).to_bytes(2, "big") + \
                  (len(content)).to_bytes(4, "big") + \
                  ext_field + \
                  tid_field + \
                  parent_field + \
+                 menu_field + \
                  content
 
         return packet

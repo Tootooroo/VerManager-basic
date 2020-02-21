@@ -3,6 +3,7 @@
 import typing
 import os
 import platform
+import shutil
 
 from manager.misc.basic.type import *
 from manager.misc.basic.util import pathStrConcate
@@ -162,3 +163,35 @@ class Storage:
             return ""
 
         return self.__crago[ident]
+
+    # User should make sure filePath is within Storage's path
+    def __addNewFile(self, ident, filePath:str) -> State:
+        if ident in self.__crago:
+            return Error
+
+        self.__crago[ident] = filePath
+        return Ok
+
+    def copy(self, filePath:str) -> State:
+
+        if len(filePath) < 1:
+            return Error
+
+        if os.path.isfile(filePath):
+            copyMethod = shutil.copy
+        elif os.path.isdir(filePath):
+            copyMethod = shutil.copytree # type: ignore
+
+        targetFile = filePath.split(seperator)[-1]
+        stoIdent = targetFile.split(".")[-1]
+
+        dest = self.__path + seperator + targetFile
+
+        try:
+            copyMethod(filePath, dest)
+        except:
+            return Error
+
+        self.__addNewFile(stoIdent, dest)
+
+        return Ok
