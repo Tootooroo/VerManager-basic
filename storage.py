@@ -4,6 +4,7 @@ import typing
 import os
 import platform
 import shutil
+import traceback
 
 from manager.misc.basic.type import *
 from manager.misc.basic.util import pathStrConcate
@@ -193,5 +194,23 @@ class Storage:
             return Error
 
         self.__addNewFile(stoIdent, dest)
+
+        return Ok
+
+    def copyTo(self, ident:str, dest:str) -> State:
+
+        if dest == "":
+            return Error
+
+        if not ident in self.__crago:
+            return Error
+
+        path = self.__crago[ident]
+
+        try:
+            shutil.copy(path, dest)
+        except:
+            traceback.print_exc()
+            return Error
 
         return Ok
