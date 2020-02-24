@@ -272,8 +272,8 @@ class NewLetter(Letter):
 
 class MenuLetter(Letter):
 
-    def __init__(self, mid:str, cmds:List[str], depends:List[str], output:str) -> None:
-        Letter.__init__(self, Letter.NewMenu, {"mid":mid},
+    def __init__(self, ver:str, mid:str, cmds:List[str], depends:List[str], output:str) -> None:
+        Letter.__init__(self, Letter.NewMenu, {"mid":mid, "version":ver},
                         {"cmds":cmds, "depends":depends, "output":output})
 
     @staticmethod
@@ -283,7 +283,7 @@ class MenuLetter(Letter):
         if type_ != Letter.NewMenu:
             return None
 
-        return MenuLetter(header['mid'], content['cmds'], content['depends'], content['output'])
+        return MenuLetter(header['version'], header['mid'], content['cmds'], content['depends'], content['output'])
 
 
 
