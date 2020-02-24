@@ -54,6 +54,12 @@ class Letter:
     # content : '{"sn":"...", "vsn":"...", "datetime":"...", "extra":{...}}"
     NewTask = 'new'
 
+    # Format of Menu letter
+    # Type    : "menu"
+    # header  : "{"mid":"..."}"
+    # content : "{"cmds":"[...]", "depends":"[...]", "output":"..."}"
+    NewMenu = 'menu'
+
     # Format of TaskCancel letter
     # Type    : 'cancel'
     # header  : '{"tid":"...", "parent":"..."}'
@@ -264,6 +270,23 @@ class NewLetter(Letter):
             extra = content['extra'],
             needPost = header['needPost'])
 
+class MenuLetter(Letter):
+
+    def __init__(self, mid:str, cmds:List[str], depends:List[str], output:str) -> None:
+        Letter.__init__(self, Letter.NewMenu, {"mid":mid},
+                        {"cmds":cmds, "depends":depends, "output":output})
+
+    @staticmethod
+    def parse(s:bytes) -> Optional['MenuLetter']:
+        (type_, header, content) = bytesDivide(s)
+
+        if type_ != Letter.NewMenu:
+            return None
+
+        return MenuLetter(header['mid'], content['cmds'], content['depends'], content['output'])
+
+
+
 class ResponseLetter(Letter):
 
     def __init__(self, tid:str, state:str, parent:str = "") -> None:
@@ -313,7 +336,8 @@ class PropLetter(Letter):
 class BinaryLetter(Letter):
 
     def __init__(self, tid:str, bStr:bytes, menu:str = "",
-                 extension:str = "", parent:str = "") -> None:
+                 extension:str = "", parent:str = "",
+                 last:str = "false") -> None:
 
         Letter.__init__(
             self,
@@ -421,6 +445,7 @@ validityMethods = {
     Letter.BinaryFile     :binaryLetterValidity,
     Letter.Log            :logLetterValidity,
     Letter.LogRegister    :logRegisterLetterValidity,
+    Letter.NewMenu        :lambda letter: True
 } # type: Dict[str, Callable]
 
 parseMethods = {
@@ -429,5 +454,6 @@ parseMethods = {
     Letter.PropertyNotify :PropLetter,
     Letter.BinaryFile     :BinaryLetter,
     Letter.Log            :LogLetter,
-    Letter.LogRegister    :LogRegLetter
+    Letter.LogRegister    :LogRegLetter,
+    Letter.NewMenu        :MenuLetter
 } # type: Any

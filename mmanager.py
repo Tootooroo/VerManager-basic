@@ -2,23 +2,22 @@
 
 from typing import Callable, Optional, List
 from threading import Thread, Event
-from util import partition
+from .util import partition
 
-from type import *
+from .type import *
 
 class Daemon(Thread):
 
     def __init__(self) -> None:
         Thread.__init__(self)
-        self.__stopEvent = Event()
         self.daemon = True
 
 
     def stop(self) -> None:
-        self.__stopEvent.set()
+        raise Exception
 
     def needStop(self) -> bool:
-        return self.__stopEvent.is_set()
+        raise Exception
 
 class Module:
 
