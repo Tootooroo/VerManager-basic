@@ -60,6 +60,12 @@ class Letter:
     # content : "{"cmds":"[...]", "depends":"[...]", "output":"..."}"
     NewMenu = 'menu'
 
+    # Format of Command letter
+    # Type    : "command"
+    # header  : "{"type":"...", "target":"...", "extra":"..."}"
+    # content : "{"content":"..."}"
+    Command = 'command'
+
     # Format of TaskCancel letter
     # Type    : 'cancel'
     # header  : '{"tid":"...", "parent":"..."}'
@@ -270,6 +276,22 @@ class NewLetter(Letter):
             extra = content['extra'],
             needPost = header['needPost'])
 
+class CommandLetter(Letter):
+
+    def __init__(self, type:str, target:str, extra:str, content:Dict[str, str] = {}) -> None:
+        Letter.__init__(self, Letter.Command,
+                        {"type":type, "target":target, "extra":extra},
+                        {"content":content})
+
+    @staticmethod
+    def parse(s:bytes) -> Optional['CommandLetter']:
+        (type_, header, content) = bytesDivide(s)
+
+        if type_ != Letter.Command:
+            return None
+
+        return CommandLetter(header['type'], header['target'], header['extra'], content['content'])
+
 class MenuLetter(Letter):
 
     def __init__(self, ver:str, mid:str, cmds:List[str], depends:List[str], output:str) -> None:
@@ -445,7 +467,8 @@ validityMethods = {
     Letter.BinaryFile     :binaryLetterValidity,
     Letter.Log            :logLetterValidity,
     Letter.LogRegister    :logRegisterLetterValidity,
-    Letter.NewMenu        :lambda letter: True
+    Letter.NewMenu        :lambda letter: True,
+    Letter.Command        :lambda letter: True
 } # type: Dict[str, Callable]
 
 parseMethods = {
@@ -455,5 +478,6 @@ parseMethods = {
     Letter.BinaryFile     :BinaryLetter,
     Letter.Log            :LogLetter,
     Letter.LogRegister    :LogRegLetter,
-    Letter.NewMenu        :MenuLetter
+    Letter.NewMenu        :MenuLetter,
+    Letter.Command        :CommandLetter
 } # type: Any
