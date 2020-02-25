@@ -64,6 +64,11 @@ class Letter:
     # Type    : "command"
     # header  : "{"type":"...", "target":"...", "extra":"..."}"
     # content : "{"content":"..."}"
+    #
+    # Type:
+    # (1) Stop -- stop worker process
+    # (2) Cancel -- Cancel target task
+    # (3) Config -- Informations that guid worker how to configure itself
     Command = 'command'
 
     # Format of TaskCancel letter
@@ -276,7 +281,17 @@ class NewLetter(Letter):
             extra = content['extra'],
             needPost = header['needPost'])
 
+CmdType = int
+CmdSubType = int
+
 class CommandLetter(Letter):
+
+
+    COMMAND_STOP = 0 # type: CmdType
+    COMMAND_CANCEL = 1 # type: CmdType
+    COMMAND_CONFIG = 2 # type: CmdType
+    COMMAND_WRONG = 3 # type: CmdType
+
 
     def __init__(self, type:str, target:str, extra:str, content:Dict[str, str] = {}) -> None:
         Letter.__init__(self, Letter.Command,
@@ -291,6 +306,28 @@ class CommandLetter(Letter):
             return None
 
         return CommandLetter(header['type'], header['target'], header['extra'], content['content'])
+
+    def cmdType(self) -> CmdType:
+
+        type = self.getHeader('type')
+
+        if type == "Stop":
+            return CommandLetter.COMMAND_STOP
+        elif type == "Cancel":
+            return CommandLetter.COMMAND_CANCEL
+        elif type == "Config":
+            return CommandLetter.COMMAND_CONFIG
+
+        return CommandLetter.COMMAND_WRONG
+
+    def target(self) -> str:
+        return self.getHeader('target')
+
+    def extra(self) -> str:
+        return self.getHeader('extra')
+
+    def cmdContent(self) -> Dict:
+        return self.getContent('content')
 
 class MenuLetter(Letter):
 
